@@ -1,0 +1,59 @@
+#include <18F4550.h>
+#fuses HSPLL,NOWDT,NOPROTECT,NOLVP,NODEBUG,USBDIV,PLL5,CPUDIV1,VREGEN
+#use delay(clock=48M)
+#DEFINE USB_HID_DEVICE  TRUE
+#define USB_EP1_TX_ENABLE  USB_ENABLE_INTERRUPT   //turn on EP1 for IN bulk/interrupt transfers
+#define USB_EP1_TX_SIZE    8
+#define USB_EP1_RX_ENABLE  USB_ENABLE_INTERRUPT   //turn on EP1 for OUT bulk/interrupt transfers
+#define USB_EP1_RX_SIZE    8
+#include <pic18_usb.h>//Funciones de bajo nivel(hardware) para la serie PIC 18Fxx5x que serviran en usb.c
+#include <usb_desc_hid.h>//Aqui es donde van las descripciones de este dispositivo (como lo reconocera windows)
+#include <usb.c>        //libreria para el manejo del usb
+#define LEDR PIN_C0  //Led rojo para la espera de la conexion USB
+#define LEDV PIN_C1  //Led  verde, se enciende cuando el USB esta conectado
+#define LED_ON output_low
+#define LED_OFF output_high
+int8 Salida[8];
+int8 Entrada[8];
+void main() {
+   
+   setup_adc_ports(AN0);
+   setup_adc(ADC_CLOCK_INTERNAL);
+   set_adc_channel(0);
+   set_tris_b(0x00);                
+   output_b(0x00);
+   LED_ON(LEDR);
+   LED_OFF(LEDV); 
+   usb_init();                      
+   usb_task();   //Monitorea el estado de la coneccion conectandose y desconectandose automaticamente
+   usb_wait_for_enumeration();  //espera infinitamente hasta que el dispositivo fue enumerado    
+   LED_ON(LEDV);
+   LED_OFF(LEDR); 
+   
+   while (TRUE) 
+   {
+      usb_task();
+      if (usb_enumerated()) 
+      {
+        
+            Salida[0]=read_adc();
+            usb_put_packet(1, Salida, 1, USB_DTS_TOGGLE);
+
+         if (usb_kbhit(1)) 
+         {
+         
+           usb_get_packet(1, Entrada, 1);
+           if (Entrada[0]==1)
+            {      
+             LED_ON(PIN_B0);
+              
+            }
+
+            else 
+            LED_OFF(PIN_B0);
+
+         }
+         
+      }
+   }
+   }
